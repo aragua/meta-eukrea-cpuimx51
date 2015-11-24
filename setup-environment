@@ -1,0 +1,199 @@
+#!/bin/sh
+#
+# Copyright (C) 2015 Fabien Lahoudere.
+# Authored-by:  Fabien Lahoudere <fabienlahoudere.pro@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+NCPU=`grep -c processor /proc/cpuinfo`
+CWD=`pwd`
+PROGNAME="setup-environment"
+
+usage()
+{
+    echo -e "\nUsage: source $PROGNAME <build-dir>
+    <build-dir>: specifies the build directory location (required)
+If undefined, this script will set \$MACHINE to 'eukrea-cpuimx51'
+                                   \$DISTRO  to 'poky'
+"
+}
+
+clean_up()
+{
+   unset LIST_MACHINES VALID_MACHINE
+   unset NCPU CWD SHORTOPTS LONGOPTS ARGS PROGNAME
+   unset generated_config updated
+   unset MACHINE SDKMACHINE DISTRO OEROOT
+}
+
+# get command line options
+SHORTOPTS="h"
+LONGOPTS="help"
+
+ARGS=$(getopt --options $SHORTOPTS  \
+  --longoptions $LONGOPTS --name $PROGNAME -- "$@" )
+# Print the usage menu if invalid options are specified
+if [ $? != 0 -o $# -lt 1 ]; then
+   usage && clean_up
+   return 1
+fi
+
+eval set -- "$ARGS"
+while true;
+do
+    case $1 in
+        -h|--help)
+           usage
+           clean_up
+           return 0
+           ;;
+        --)
+           shift
+           break
+           ;;
+    esac
+done
+
+BUILDDIR=$1
+
+if [ "$(whoami)" = "root" ]; then
+    echo "ERROR: do not use the BSP as root. Exiting..."
+fi
+
+if [ -z "$MACHINE" ]; then
+    MACHINE='eukrea-cpuimx51'
+fi
+
+# Check the machine type specified, only in bsp layer
+LIST_MACHINES=`ls -1 $CWD/sources/meta-eukrea-cpuimx51/conf/machine`
+VALID_MACHINE=`echo -e "$LIST_MACHINES" | grep ${MACHINE}.conf$ | wc -l`
+if [ "x$MACHINE" = "x" ] || [ "$VALID_MACHINE" = "0" ]; then
+    echo -e "\nThe \$MACHINE you have specified ($MACHINE) is not supported by this build setup"
+    usage && clean_up
+    return 1
+else
+    if [ ! -e $1/conf/local.conf.sample ]; then
+        echo "Configuring for ${MACHINE}"
+    fi
+fi
+
+if [ -z "$SDKMACHINE" ]; then
+    SDKMACHINE='i686'
+fi
+
+if [ -z "$DISTRO" ]; then
+    DISTRO='poky'
+fi
+
+if [ -z "$DL_DIR" ]; then
+    DL_DIR="${HOME}/downloads/"
+fi
+
+if [ -z "$SSTATE_DIR" ]; then
+    SSTATE_DIR="\${TOPDIR}/../sstate-cache"
+fi
+
+OEROOT=sources/poky
+if [ -e sources/oe-core ]; then
+    OEROOT=sources/oe-core
+fi
+
+cd $OEROOT
+
+. ./oe-init-build-env $CWD/$BUILDDIR > /dev/null
+
+# if conf/local.conf not generated, no need to go further
+if [ ! -e conf/local.conf ]; then
+    clean_up && return 1
+fi
+
+# Clean up PATH, because if it includes tokens to current directories somehow,
+# wrong binaries can be used instead of the expected ones during task execution
+export PATH="`echo $PATH | sed 's/\(:.\|:\)*:/:/g;s/^.\?://;s/:.\?$//'`"
+
+if [ ! -e conf/local.conf.stamp ]
+then
+    cat > conf/local.conf <<EOF
+MACHINE = "$MACHINE"
+DISTRO = "$DISTRO"
+SDKMACHINE = "$SDKMACHINE"
+
+USER_CLASSES ?= "buildstats image-mklibs image-prelink"
+PATCHRESOLVE = "noop"
+BB_DISKMON_DIRS = "\
+    STOPTASKS,${TMPDIR},1G,100K \
+    STOPTASKS,${DL_DIR},1G,100K \
+    STOPTASKS,${SSTATE_DIR},1G,100K \
+    ABORT,${TMPDIR},100M,1K \
+    ABORT,${DL_DIR},100M,1K \
+    ABORT,${SSTATE_DIR},100M,1K" 
+
+CONF_VERSION = "1"
+
+DL_DIR ?= "$DL_DIR"
+SSTATE_DIR ?= "$SSTATE_DIR"
+
+#INCOMPATIBLE_LICENSE = "GPLv3"
+
+INHERIT += "rm_work"
+RM_WORK_EXCLUDE += ""
+
+INHERIT += "buildhistory"
+
+EOF
+
+    touch conf/local.conf.stamp
+fi
+
+if [ ! -e conf/bblayers.conf.stamp ]
+then
+    cat > conf/bblayers.conf <<EOF
+LCONF_VERSION = "6"
+
+BBPATH = "\${TOPDIR}"
+BSPDIR := "\${@os.path.abspath(os.path.dirname(d.getVar('FILE', True)) + '/../..')}"
+
+BBFILES ?= ""
+BBLAYERS = " \
+  \${BSPDIR}/sources/poky/meta \
+  \${BSPDIR}/sources/poky/meta-yocto \
+  \${BSPDIR}/sources/meta-openembedded/meta-oe \
+  \${BSPDIR}/sources/meta-eukrea-cpuimx51 \
+"
+EOF
+    touch conf/bblayers.conf.stamp
+fi
+
+######
+
+cat <<EOF
+
+Welcome to eukrea-cpuimx51 BSP
+
+The Yocto Project has extensive documentation about OE including a
+reference manual which can be found at:
+    http://yoctoproject.org/documentation
+
+For more information about OpenEmbedded see their website:
+    http://www.openembedded.org/
+
+You can now run 'bitbake <target>'
+
+Common targets are:
+    insa-image
+
+EOF
+
+clean_up
