@@ -1,0 +1,75 @@
+This README file contains information on building the meta-eukrea-cpuimx51
+BSP layer, and booting the images contained in the /binary directory.
+Please see the corresponding sections below for details.
+
+
+Dependencies
+============
+
+This layer depends on:
+
+  URI: git://git.openembedded.org/bitbake
+  branch: master
+
+  URI: git://git.openembedded.org/openembedded-core
+  layers: meta
+  branch: master
+
+
+Table of Contents
+=================
+
+   I. Building the meta-eukrea-cpuimx51 BSP layer
+  II. Flashing images
+ III. Booting images
+
+
+I. Building the meta-eukrea-cpuimx51 BSP layer
+==============================================
+
+mkdir insa
+cd insa
+repo init -u https://github.com/aragua/manifest.git -m eukrea.xml
+repo sync
+
+source setup-environment build
+
+bitbake insa-image
+
+
+II. Flashing images
+===================
+
+Images are stored in tmp/deploy/images/eukrea-cpuimx51/:
+- barebox : bootloader
+- bareboxenv : environment partition for barebox
+- uImage : distribution kernel
+- uImage-imx51-eukrea-mbimxsd51-baseboard.dtb : device tree
+- insa-image-eukrea-cpuimx51.tar.bz2 : last rootfs
+
+Bootloader must be flashed on NAND.
+
+You must have 2 partition on your sdcard.
+1. vfat at least 8Mo. Copy uImage and uImage-imx51-eukrea-mbimxsd51-baseboard.dtb
+2. ext3 with the rest of space. untar rootfs on it.
+   tar xvf insa-image-eukrea-cpuimx51.tar.bz2 -C <ext-part-mountpoint>/
+
+sync your fs.
+
+
+
+III. Booting images
+===================
+
+Connect upper console (ttyUSB0,115200).
+Boot board and enter a character to stop barebox countdown.
+Modify env/bin/boot_sd to boot your kernel and dtb.
+
+env/bin/boot_sd:
+
+#!/bin/sh
+mci0.probe=1
+mkdir /mnt
+mount /dev/disk0.0 fat /mnt
+bootargs="console=ttymxc0,115200 root=/dev/mmcblk0p2 rootwait"
+bootm /mnt/uImage -o /mnt/uImage-imx51-eukrea-mbimxsd51-baseboard.dtb

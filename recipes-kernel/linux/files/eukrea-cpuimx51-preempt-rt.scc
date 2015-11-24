@@ -1,0 +1,11 @@
+define KMACHINE eukrea-cpuimx51
+define KTYPE preempt-rt
+define KARCH arm
+
+include ktypes/preempt-rt/preempt-rt.scc
+
+include eukrea-cpuimx51.scc
+
+# default policy for preempt-rt kernels
+include features/latencytop/latencytop.scc
+include features/profiling/profiling.scc

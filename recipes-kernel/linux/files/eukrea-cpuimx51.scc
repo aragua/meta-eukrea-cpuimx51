@@ -1,0 +1,5 @@
+kconf hardware eukrea-cpuimx51.cfg
+include features/usb-net/usb-net.scc
+
+kconf hardware eukrea-cpuimx51-user-config.cfg
+include eukrea-cpuimx51-user-patches.scc

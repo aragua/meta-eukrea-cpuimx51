@@ -1,0 +1,7 @@
+define KMACHINE eukrea-cpuimx51
+define KTYPE tiny
+define KARCH arm
+
+include ktypes/tiny/tiny.scc
+
+include eukrea-cpuimx51.scc
