@@ -63,9 +63,9 @@ III. Booting images
 
 Connect upper console (ttyUSB0,115200).
 Boot board and enter a character to stop barebox countdown.
-Modify env/bin/boot_sd to boot your kernel and dtb.
+Modify env/bin/boot_sd (use the edit editor) to boot your kernel and dtb.
 
-env/bin/boot_sd:
+# edit env/bin/boot_sd
 
 #!/bin/sh
 mci0.probe=1
@@ -73,3 +73,5 @@ mkdir /mnt
 mount /dev/disk0.0 fat /mnt
 bootargs="console=ttymxc0,115200 root=/dev/mmcblk0p2 rootwait"
 bootm /mnt/uImage -o /mnt/uImage-imx51-eukrea-mbimxsd51-baseboard.dtb
+
+Save your changes with the saveenv command.
