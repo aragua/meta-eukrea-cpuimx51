@@ -30,7 +30,7 @@ I. Building the meta-eukrea-cpuimx51 BSP layer
 mkdir insa
 cd insa
 repo init -u https://github.com/aragua/manifest.git -m eukrea.xml
-repo sync
+repo sync -c
 
 source setup-environment build
 
